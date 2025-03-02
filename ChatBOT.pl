@@ -44,15 +44,6 @@ extract_atomics(Lmots,ListOfAtomics), Lstrings is ListOfAtomics,!);
       extract_atomics(Lmots,ListOfAtomics), Lstrings is ListOfAtomics, !);
    
       
-
-    (X mod 2 =:= 0 -> 
-        Parite = pair
-    ; 
-        Parite = impair
-    ),
-    Resultats = resultat(Type, Parite, X).
-```
-
 produire_reponse([fin],L1) :-
     L1 = [merci, de, m, '\'', avoir, consulte], !.
 
