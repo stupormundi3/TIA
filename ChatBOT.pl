@@ -39,7 +39,7 @@ extract_atomics(Lmots,ListOfAtomics), Lstrings is ListOfAtomics,!);
       extract_atomics(Lmots,ListOfAtomics), Lstrings is ListOfAtomics,!);
       
 
-      #Faudra considérer les cas vers rouge bleues etc mais faut se baser sur l'algo
+      %%Faudra considérer les cas vers rouge bleues etc mais faut se baser sur l'algo
       ((sublist(["lutin","jeu"],Lmots)) -> 
       extract_atomics(Lmots,ListOfAtomics), Lstrings is ListOfAtomics, !);
    
