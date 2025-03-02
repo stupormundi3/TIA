@@ -24,19 +24,19 @@
 
 produire_reponse(Lmots,Lstrings):-
     ((sublist(["commence","jeu"],Lmots)) -> 
-extract_atomics(Lmots,ListOfAtomics), Lstrings is ListOfAtomics,!);
+extract_atomics(Lmots,ListOfAtomics), Lstrings is ListOfAtomics,produire_reponse(Lmots,Lstrings),!);
 
       ((sublist(["combien","lutins"],Lmots)) -> 
-      extract_atomics(Lmots,ListOfAtomics), Lstrings is ListOfAtomics,!);
+      extract_atomics(Lmots,ListOfAtomics), Lstrings is ListOfAtomics,produire_reponse(Lmots,Lstrings),!);
       
       ((sublist(["deplacer","lutins"],Lmots)) -> 
-      extract_atomics(Lmots,ListOfAtomics), Lstrings is ListOfAtomics, !);
+      extract_atomics(Lmots,ListOfAtomics), Lstrings is ListOfAtomics,produire_reponse(Lmots,Lstrings), !);
              
       ((sublist(["retirer","lutin"],Lmots)) -> 
-      extract_atomics(Lmots,ListOfAtomics), Lstrings is ListOfAtomics,!);
+      extract_atomics(Lmots,ListOfAtomics), Lstrings is ListOfAtomics,produire_reponse(Lmots,Lstrings),!);
        
       ((sublist(["commence","jeu"],Lmots)) -> 
-      extract_atomics(Lmots,ListOfAtomics), Lstrings is ListOfAtomics,!);
+      extract_atomics(Lmots,ListOfAtomics), Lstrings is ListOfAtomics,produire_reponse(Lmots,Lstrings),!);
       
 
       %%Faudra considérer les cas vers rouge bleues etc mais faut se baser sur l'algo
