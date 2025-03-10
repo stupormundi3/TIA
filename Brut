@@ -1,0 +1,38 @@
+etat([(x,y)|PositionsLutins],NbPonts,PositionsPonts):-
+    
+
+transition(etat(PositionsLutins,NbPonts,PositionsPonts),
+etat(NewPositionsNewNbPonts,PositionsPonts),
+        monter):-
+
+
+
+
+transition(etat(PositionsLutins,NbPonts,PositionsPonts),
+        etat(NewPositionsNewNbPonts,PositionsPonts),
+        descendre):-
+            
+
+
+transition(etat(PositionsLutins,NbPonts,PositionsPonts),
+    etat(NewPositionsNewNbPonts,PositionsPonts),
+                droite):-
+
+
+
+transition(etat(PositionsBleu,PositionsVert,PositionsRouge,PositionsJaune,NbPonts,PositionsPonts),
+                    etat(PositionsBleu,PositionsVert,NewPositionsRouge,PositionsJaune,NewNbPonts,PositionsPonts),
+                        gauche):-
+                                                                 
+
+
+
+checklignes(Coord(x,y)|ListePositions):-
+
+
+
+
+checkcolonnes(PositionsLutins)
+
+checklignes(PositionsLutins)
+
