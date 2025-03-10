@@ -24,12 +24,13 @@ append(L,(X2,Y2,Team),Lutin_mod). %% fait que lutin mod = L+nouvelle position du
 
 retirerpond((Lutins,Ponds),Pond,(Lutins,Ponds_mod)):- \+ member(Ponds,Pond),append(Ponds,Pond,Ponds_mod).
 %%pour droite et haut = base reste la meme mais destination change
-%%scrap car suis debile et je doit check ce qu'est une rotation dans pontu . compter comme invalide pour l'instant
-rotate_pond((Lutins,Ponds),((Xp,Yp),(Xp2,Yp2)),((Xp,Yp),(Xp2_mod,Yp2_mod)),Ponds_mod()):-\+ member(Ponds,Pond),%% check que pond existe
-member(((Xp,Yp),(Xp2_mod,Yp2_mod)),Ponds),%% check que place est libre
+
+rotate_pond((Lutins,Ponds),((Xp,Yp),(Xp2,Yp2)),((Xp,Yp),(Xp2_mod,Yp2_mod)),Ponds_mod()):-check_pond(((Xp,Yp),(Xp2,Yp2))),%%check que la position de base du pond est valide
+\+ member(Ponds,Pond),%% check que le pond existe
+member(((Xp,Yp),(Xp2_mod,Yp2_mod)),Ponds),%% check que place de rotation est libre
 apend(Ponds,Pond,X),%% X= ponds avec anciene position de pond ajouter
 check_pond((Xp,Yp),(Xp2_mod,Yp2_mod)),%% check nouvelle position est valide
-delete(X,Pond_mod,Ponds_mod).%% pont mod = X ou retire la nouvelle position du pond 
+delete(X,((Xp,Yp),(Xp2_mod,Yp2_mod)),Ponds_mod).%% pont mod = X ou retire la nouvelle position du pond 
 
-%% pour quand tour se fait devra check lutins et si une team est éliminer les suprimer de la liste des lutin 
+%% pour quand tour d'un joueur se fini devra check lutins et si une team est éliminer les suprimer de la liste des lutin 
 eliminate()
