@@ -21,29 +21,46 @@
 
 
 
+db_response("commence", "Par convention, c est au joueur en charge des lutins
+    verts de commencer la partie").
 
-produire_reponse(Lmots,Lstrings):-
-    ((sublist(["commence","jeu"],Lmots)) -> 
-extract_atomics(Lmots,ListOfAtomics), Lstrings is ListOfAtomics,produire_reponse(Lmots,Lstrings),!);
+db_response("combien", "4").
 
-      ((sublist(["combien","lutins"],Lmots)) -> 
-      extract_atomics(Lmots,ListOfAtomics), Lstrings is ListOfAtomics,produire_reponse(Lmots,Lstrings),!);
-      
-      ((sublist(["deplacer","lutins"],Lmots)) -> 
-      extract_atomics(Lmots,ListOfAtomics), Lstrings is ListOfAtomics,produire_reponse(Lmots,Lstrings), !);
-             
-      ((sublist(["retirer","lutin"],Lmots)) -> 
-      extract_atomics(Lmots,ListOfAtomics), Lstrings is ListOfAtomics,produire_reponse(Lmots,Lstrings),!);
-       
-      ((sublist(["commence","jeu"],Lmots)) -> 
-      extract_atomics(Lmots,ListOfAtomics), Lstrings is ListOfAtomics,produire_reponse(Lmots,Lstrings),!);
-      
+db_response("déplacer", "non").
 
-      %%Faudra considérer les cas vers rouge bleues etc mais faut se baser sur l'algo
-      ((sublist(["lutin","jeu"],Lmots)) -> 
-      extract_atomics(Lmots,ListOfAtomics), Lstrings is ListOfAtomics, !);
+db_response("pont retiré", "Il est permis de retirer le pont emprunte ou tout autre
+pont").
+
+
+produire_reponse(Q1, R):-
+    db_response(Candidate, R),
+    extract_atomics(Q1,ListOfAtomics),
+    recursion_reponse(Candidate,ListOfAtomics)
+    !.
+
+
+recursion_reponse(Keyword,[])
+recursion_reponse(KeyWord,[X1|CandidateQuestion]):-
+    isub(KeyWord, X1, D, [normalize(true)]),
+    recursion_reponse(KeyWord,CandidateQuestion),
+    D > 0.2
+
    
-      
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 produire_reponse([fin],L1) :-
     L1 = [merci, de, m, '\'', avoir, consulte], !.
 
@@ -421,6 +438,10 @@ pontuXL :-
 /* --------------------------------------------------------------------- */
 
 :- pontuXL.
+
+
+
+
 
 
 
