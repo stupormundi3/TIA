@@ -24,7 +24,7 @@ append(L,(X2,Y2,Team),Lutin_mod). %% fait que lutin mod = L+nouvelle position du
 
 retirerpond((Lutins,Ponds),Pond,(Lutins,Ponds_mod)):- \+ member(Ponds,Pond),append(Ponds,Pond,Ponds_mod).
 %%pour droite et haut = base reste la meme mais destination change
-
+%% besoin changement que 90° pour rotation donc peut etre 4 transitions a la place doit rework le code
 rotate_pond((Lutins,Ponds),((Xp,Yp),(Xp2,Yp2)),((Xp,Yp),(Xp2_mod,Yp2_mod)),Ponds_mod()):-check_pond(((Xp,Yp),(Xp2,Yp2))),%%check que la position de base du pond est valide
 \+ member(Ponds,((Xp,Yp),(Xp2,Yp2))),%% check que le pond existe
 member(((Xp,Yp),(Xp2_mod,Yp2_mod)),Ponds),%% check que place de rotation est libre
