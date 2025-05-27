@@ -23,6 +23,8 @@
 export default {
   name: "PontuPont",
   props: {
+
+    
     /*
       'pont' est un objet { x1, y1, x2, y2 } représentant
       les coordonnées (en pixels) de la ligne <line>.
@@ -30,6 +32,10 @@ export default {
     pont: {
       type: Object,
       required: true
+    },
+    gridCoords: {
+      type: Array,
+      required: true // [ [r1, c1], [r2, c2] ]
     }
   },
   data() {
@@ -45,12 +51,10 @@ export default {
 
     // Clic simple => émet un événement 'pont-clicked' vers le parent
     onPontClick() {
-      this.$emit("pont-clicked", this.pont);
+      this.$emit("pont-clicked", this.gridCoords);
     },
-
-    // Double-clic => émet un événement 'pont-rotate' pour rotation
     onPontDoubleClick() {
-      this.$emit("pont-rotate", this.pont);
+      this.$emit("pont-rotate", this.gridCoords);
     }
   }
 };
