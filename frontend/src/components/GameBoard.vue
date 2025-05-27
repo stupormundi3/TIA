@@ -191,7 +191,16 @@ export default {
     async getValidMoves() {
       const res = await fetch(`/api/valid_moves?session_id=${this.sessionId}`);
       const data = await res.json();
-      this.validMoves = (data.valid_moves || []).map(vm => vm.move);
+      this.validMoves = (data.valid_moves || []).map(vm => ({
+        ...vm.move,
+        from_x: vm.move.from_x - 1,
+        from_y: vm.move.from_y - 1,
+        to_x: vm.move.to_x - 1,
+        to_y: vm.move.to_y - 1
+      }));
+      if (this.validMoves.length > 0) {
+        console.log('[DEBUG] Exemple de validMove:', this.validMoves[0]);
+      }
     },
     async makeMove(fromX, fromY, toX, toY, actionType="none", bridge=null, pivot=null) {
       console.log('[DEBUG] makeMove', {fromX, fromY, toX, toY, actionType, bridge, pivot});
@@ -252,12 +261,18 @@ export default {
         move.to_y  ===coord.y
       );
       if (!isValid) {
+        console.warn('[DEBUG] Coup non trouvé. validMoves:', this.validMoves, 'Comparé à:', {
+          from_x: this.selectedLutin.col,
+          from_y: this.selectedLutin.row,
+          to_x: coord.x,
+          to_y: coord.y
+        });
         this.showFeedback("Coup invalide", true);
         return;
       }
       await this.makeMove(
-        this.selectedLutin.col, this.selectedLutin.row,
-        coord.x, coord.y
+        this.selectedLutin.col + 1, this.selectedLutin.row + 1,
+        coord.x + 1, coord.y + 1
       );
       this.selectedLutin = null;
     },
@@ -282,8 +297,8 @@ export default {
       }
       try {
         await this.makeMove(
-          this.selectedLutin.col, this.selectedLutin.row,
-          this.selectedLutin.col, this.selectedLutin.row,
+          this.selectedLutin.col + 1, this.selectedLutin.row + 1,
+          this.selectedLutin.col + 1, this.selectedLutin.row + 1,
           type, bridge, pivot
         );
         this.selectedLutin=null; this.mustModifyBridge=false;
