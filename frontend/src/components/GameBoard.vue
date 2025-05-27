@@ -168,11 +168,18 @@ export default {
       const res = await fetch(`/api/game_state?session_id=${this.sessionId}`);
       const data = await res.json();
       this.gameState = data;
+      // On conserve la sélection si possible
+      let prevSelected = this.selectedLutin;
       this.lutins = (data.goblins||[]).map(g => ({
         color: g.player, row: g.y, col: g.x
       }));
       this.currentPlayerIndex = this.playersOrder.indexOf(data.current_player||"green");
-      console.log("Lutins reçus :", this.lutins);
+      // Recherche du lutin sélectionné dans la nouvelle liste
+      if (prevSelected) {
+        const found = this.lutins.find(l => l.color === prevSelected.color && l.row === prevSelected.row && l.col === prevSelected.col);
+        this.selectedLutin = found || null;
+      }
+      console.log("Lutins reçus :", this.lutins, "Selected:", this.selectedLutin);
     },
     async getValidMoves() {
       const res = await fetch(`/api/valid_moves?session_id=${this.sessionId}`);
@@ -180,6 +187,7 @@ export default {
       this.validMoves = (data.valid_moves || []).map(vm => vm.move);
     },
     async makeMove(fromX, fromY, toX, toY, actionType="none", bridge=null, pivot=null) {
+      console.log('[DEBUG] makeMove', {fromX, fromY, toX, toY, actionType, bridge, pivot});
       try {
         const body = { session_id:this.sessionId,
                        from_x:fromX, from_y:fromY,
@@ -218,6 +226,7 @@ export default {
       }
     },
     onLutinClicked(lutin) {
+      console.log('[DEBUG] CLIC LUTIN', lutin);
       if (lutin.color !== this.currentPlayer) {
         this.showFeedback(`Ce n’est pas le tour de ${lutin.color}`, true);
         return;
@@ -227,6 +236,7 @@ export default {
       this.highlightIntersections = [];
     },
     async onIntersectionClicked(coord) {
+      console.log('[DEBUG] CLIC INTERSECTION', coord, 'selectedLutin:', this.selectedLutin);
       if (!this.selectedLutin) return;
       const isValid = this.validMoves.some(move =>
         move.from_x===this.selectedLutin.col &&

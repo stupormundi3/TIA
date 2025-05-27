@@ -70,10 +70,9 @@ export default {
 <style scoped>
 /* Styles optionnels : par exemple changer l'opacité ou l’ombre */
 circle {
-  transition: transform 0.1s ease;
+  transition: none;
 }
 circle:hover {
-  transform: scale(1.2);
   cursor: pointer;
 }
 </style>

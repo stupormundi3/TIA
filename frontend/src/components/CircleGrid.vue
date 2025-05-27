@@ -4,9 +4,8 @@
       
       <!-- Ponts sous forme de composants enfant -->
       <PontuPont
-      v-for="(bridge, index) in bridges"
+      v-for="(bridge, index) in validBridges"
       :key="'pont-' + index"
-      v-if="convertToPontObject(bridge)"
       :pont="convertToPontObject(bridge)"
       :gridCoords="bridge"
       @pont-clicked="deleteBridgeByCoords"
@@ -83,6 +82,10 @@ export default {
         }
       }
       return pts;
+    },
+    validBridges() {
+      // On ne garde que les ponts valides (convertToPontObject ne retourne pas null)
+      return this.bridges.filter(b => this.convertToPontObject(b));
     }
   },
 
