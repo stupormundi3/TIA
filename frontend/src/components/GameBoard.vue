@@ -152,9 +152,12 @@ export default {
         this.sessionId = data.session_id;
         if (data.goblins && data.bridges) {
           this.lutins = data.goblins.map(g => ({
-            color: g.player, row: g.y, col: g.x
+            color: g.player, row: g.y - 1, col: g.x - 1
           }));
-          this.bridges = data.bridges.map(b => [[b.x1,b.y1],[b.x2,b.y2]]);
+          this.bridges = data.bridges.map(b => [
+            [b.y1 - 1, b.x1 - 1],
+            [b.y2 - 1, b.x2 - 1]
+          ]);
         }
         await this.getGameState();
         await this.getValidMoves();
@@ -171,8 +174,12 @@ export default {
       // On conserve la sélection si possible
       let prevSelected = this.selectedLutin;
       this.lutins = (data.goblins||[]).map(g => ({
-        color: g.player, row: g.y, col: g.x
+        color: g.player, row: g.y - 1, col: g.x - 1
       }));
+      this.bridges = (data.bridges || []).map(b => [
+        [b.y1 - 1, b.x1 - 1],
+        [b.y2 - 1, b.x2 - 1]
+      ]);
       this.currentPlayerIndex = this.playersOrder.indexOf(data.current_player||"green");
       // Recherche du lutin sélectionné dans la nouvelle liste
       if (prevSelected) {

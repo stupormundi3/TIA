@@ -28,8 +28,8 @@
 
       <!-- Lutins -->
       <PontuLutin
-        v-for="(lutin, idx) in lutins"
-        :key="'lutin-'+idx"
+        v-for="lutin in lutins"
+        :key="lutin.color + '-' + lutin.row + '-' + lutin.col"
         :lutin="lutin"
         :spacing="spacing"
         :circleRadius="circleRadius"
@@ -84,8 +84,14 @@ export default {
       return pts;
     },
     validBridges() {
-      // On ne garde que les ponts valides (convertToPontObject ne retourne pas null)
-      return this.bridges.filter(b => this.convertToPontObject(b));
+      // On ne garde que les ponts horizontaux ou verticaux adjacents
+      return this.bridges.filter(b => {
+        if (!Array.isArray(b) || b.length !== 2) return false;
+        const [[r1, c1], [r2, c2]] = b;
+        const isHorizontal = (r1 === r2) && (Math.abs(c1 - c2) === 1);
+        const isVertical = (c1 === c2) && (Math.abs(r1 - r2) === 1);
+        return (isHorizontal || isVertical) && this.convertToPontObject(b);
+      });
     }
   },
 
