@@ -34,7 +34,6 @@
       <div class="board-container">
         <h2>PontuXL – 6×6</h2>
 
-        <!-- Feedback général -->
         <div
           v-if="feedbackMessage"
           class="feedback-banner"
@@ -43,37 +42,23 @@
           {{ feedbackMessage }}
         </div>
 
-        <!-- Grille du jeu -->
         <CircleGrid
           :rows="6"
           :cols="6"
-          :spacing="60"
-          :circleRadius="10"
-          :lutinRadius="8"
           :lutins="lutins"
           :bridges="bridges"
           :highlightIntersections="highlightIntersections"
-          @refresh-game="handleRefresh"
           @lutin-clicked="onLutinClicked"
           @intersection-clicked="onIntersectionClicked"
-          @delete-bridge="onBridgeDelete"
-          @rotate-bridge="onBridgeRotate"
+          @pont-action="handlePontAction"
         />
 
-        <!-- Choix d’action sur le pont -->
-       <div v-if="mustModifyBridge" class="warning-banner">
-        ⚠ Vous devez <b>supprimer</b> ou <b>tourner</b> un pont avant de terminer votre tour !
-        <div>
-          <button @click="handleBridgeAction('remove')">
-            Supprimer un pont
-          </button>
-          <button @click="handleBridgeAction('rotate')">
-            Tourner un pont
-          </button>
+        <div v-if="pendingMove && !pendingActionType" class="warning-banner">
+          ⚠ Choisissez d’abord :
+          <button @click="startBridgeAction('remove')">Supprimer un pont</button>
+          <button @click="startBridgeAction('rotate')">Tourner un pont</button>
         </div>
-      </div>
 
-        <!-- Statistiques de la partie -->
         <h3>Tour actuel : {{ currentPlayer }}</h3>
         <h3>Ponts restants : {{ bridges.length }}</h3>
 
@@ -90,7 +75,6 @@
   </div>
 </template>
 
-
 <script>
 import CircleGrid from "./CircleGrid.vue";
 
@@ -100,7 +84,6 @@ export default {
 
   data() {
     return {
-      // --- État du jeu ---
       sessionId: null,
       gameState: null,
       validMoves: [],
@@ -113,20 +96,18 @@ export default {
       currentPlayerIndex: 0,
       selectedLutin: null,
 
-      // phase de déplacement + action pont
+      pendingActionType: null,
       pendingMove: null,
       pendingBridge: null,
       pendingPivot: null,
       mustModifyBridge: false,
 
-      // interface
       highlightIntersections: [],
       feedbackMessage: "",
       feedbackIsError: false,
 
-      // ChatBot
-      chatHistory: [],      // { from:"Vous"|"PBot", text: String }
-      chatQuestion: ""      // texte saisi
+      chatHistory: [],
+      chatQuestion: ""
     };
   },
 
@@ -141,158 +122,58 @@ export default {
   },
 
   methods: {
-    // ----- Partie jeu -----
-    onBridgeDelete(bridge) {
-      if (!this.mustModifyBridge) return;
+    async handlePontAction({ bridge, pivot }) {
+      if (!this.pendingMove) {
+        return this.showFeedback("D'abord déplacez un lutin !", true);
+      }
       this.pendingBridge = bridge;
-      this.handleBridgeAction("remove");
+      this.pendingPivot  = pivot;
+      return this.commitBridgeAction();
     },
 
-    onBridgeRotate(bridge) {
-      if (!this.mustModifyBridge) return;
-      const pivot = bridge[0];
-      this.pendingBridge = bridge;
-      this.pendingPivot = pivot;
-      this.handleBridgeAction("rotate");
-    },
+    async commitBridgeAction() {
+      const bridgeClean = this.pendingBridge.map(pair => pair.slice());
+      const pivotClean  = this.pendingPivot ? this.pendingPivot.slice() : null;
+      const { fromX, fromY, toX, toY } = this.pendingMove;
+      const actionType = this.pendingActionType;
 
-    async handleRefresh() {
-      await this.getGameState();
-      await this.getValidMoves();
-    },
+      console.log("[commitBridgeAction] →", {
+        fromX, fromY, toX, toY, actionType,
+        bridge: bridgeClean,
+        pivot:  pivotClean
+      });
 
-    async startNewGame() {
       try {
-        const res = await fetch("/api/new_game", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: "random" })
-        });
-        const data = await res.json();
-        this.sessionId = data.session_id;
-        if (data.goblins && data.bridges) {
-          this.lutins = data.goblins.map(g => ({
-            color: g.player,
-            row: g.y - 1,
-            col: g.x - 1
-          }));
-          this.bridges = data.bridges.map(b => [
-            [b.y1 - 1, b.x1 - 1],
-            [b.y2 - 1, b.x2 - 1]
-          ]);
-        }
-        await this.getGameState();
-        await this.getValidMoves();
-        const { allLocations } = this.generateBridgesAndLocations();
-        this.validBridgeLocations = allLocations;
+        await this.makeMove(fromX, fromY, toX, toY, actionType, bridgeClean, pivotClean);
       } catch (err) {
-        console.error("❌ Erreur startNewGame:", err);
-        this.showFeedback("Erreur lors du démarrage de la partie", true);
+        return this.showFeedback("Erreur sur l’action pont", true);
+      } finally {
+        this.pendingMove       = null;
+        this.pendingBridge     = null;
+        this.pendingPivot      = null;
+        this.pendingActionType = null;
+        this.mustModifyBridge  = false;
+        this.selectedLutin     = null;
       }
     },
 
-    async getGameState() {
-      try {
-        const res = await fetch(`/api/game_state?session_id=${this.sessionId}`);
-        const data = await res.json();
-        this.gameState = data;
-        const prev = this.selectedLutin;
-        this.lutins = (data.goblins || []).map(g => ({
-          color: g.player,
-          row: g.y - 1,
-          col: g.x - 1
-        }));
-        this.bridges = (data.bridges || []).map(b => [
-          [b.y1 - 1, b.x1 - 1],
-          [b.y2 - 1, b.x2 - 1]
-        ]);
-        this.currentPlayerIndex = this.playersOrder.indexOf(data.current_player || "green");
-        // restore selection
-        if (prev) {
-          const found = this.lutins.find(
-            l => l.color === prev.color && l.row === prev.row && l.col === prev.col
-          );
-          this.selectedLutin = found || null;
-        }
-      } catch (err) {
-        console.error("❌ Erreur getGameState:", err);
-        this.showFeedback("Erreur récupération état", true);
+    startBridgeAction(type) {
+      if (!this.pendingMove) {
+        return this.showFeedback("D'abord déplacez un lutin !", true);
       }
+      this.pendingActionType = type;
+      this.showFeedback(
+        type === 'remove'
+          ? "Cliquez sur le pont à supprimer"
+          : "Cliquez sur le pont à faire pivoter",
+        false
+      );
     },
 
-    async getValidMoves() {
-      try {
-        const res = await fetch(`/api/valid_moves?session_id=${this.sessionId}`);
-        const data = await res.json();
-        this.validMoves = (data.valid_moves || []).map(vm => ({
-          ...vm.move,
-          from_x: vm.move.from_x - 1,
-          from_y: vm.move.from_y - 1,
-          to_x: vm.move.to_x - 1,
-          to_y: vm.move.to_y - 1
-        }));
-      } catch (err) {
-        console.error("❌ Erreur getValidMoves:", err);
-        this.showFeedback("Erreur récupération coups valides", true);
-      }
-    },
-
-    async makeMove(fromX, fromY, toX, toY, actionType = "none", bridge = null, pivot = null) {
-      try {
-        const body = {
-          session_id: this.sessionId,
-          from_x: fromX,
-          from_y: fromY,
-          to_x: toX,
-          to_y: toY,
-          action_type: actionType
-        };
-        if (bridge) {
-          body.bridge_x1 = bridge[0][0];
-          body.bridge_y1 = bridge[0][1];
-          body.bridge_x2 = bridge[1][0];
-          body.bridge_y2 = bridge[1][1];
-        }
-        if (actionType === "rotate" && pivot) {
-          body.pivot_x = pivot[0];
-          body.pivot_y = pivot[1];
-        }
-        await fetch("/api/make_move", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body)
-        });
-        // rafraîchir l’état après coup
-        await this.getGameState();
-        await this.getValidMoves();
-        // IA si nécessaire
-        if (this.aiPlayers.includes(this.currentPlayer)) {
-          await this.getAIMove();
-        }
-      } catch (err) {
-        console.error("❌ Erreur makeMove:", err);
-        this.showFeedback("Erreur lors du mouvement", true);
-      }
-    },
-
-    async getAIMove() {
-      try {
-        await fetch(`/api/ai_move?session_id=${this.sessionId}`);
-        await this.getGameState();
-        await this.getValidMoves();
-      } catch (err) {
-        console.error("❌ Erreur getAIMove:", err);
-        this.showFeedback("Erreur IA", true);
-      }
-    },
-
-    onLutinClicked(lutin) {
-      console.log("[DEBUG] CLIC LUTIN", lutin);
+    async onLutinClicked(lutin) {
       if (lutin.color !== this.currentPlayer) {
-        this.showFeedback(`Ce n’est pas le tour de ${lutin.color}`, true);
-        return;
+        return this.showFeedback(`Ce n’est pas le tour de ${lutin.color}`, true);
       }
-      // reset phase déplacement/action
       this.selectedLutin = lutin;
       this.pendingMove = null;
       this.pendingBridge = null;
@@ -303,109 +184,79 @@ export default {
 
     onIntersectionClicked(coord) {
       if (!this.selectedLutin) return;
-      // vérifier validité
+
       const ok = this.validMoves.some(m =>
         m.from_x === this.selectedLutin.col &&
         m.from_y === this.selectedLutin.row &&
         m.to_x === coord.x &&
         m.to_y === coord.y
       );
-      if (!ok) {
-        this.showFeedback("Coup invalide", true);
-        return;
-      }
-      // stocker move en 1-based
+      if (!ok) return this.showFeedback("Coup invalide", true);
+
       const fromX = this.selectedLutin.col + 1;
       const fromY = this.selectedLutin.row + 1;
-      const toX = coord.x + 1;
-      const toY = coord.y + 1;
+      const toX   = coord.x + 1;
+      const toY   = coord.y + 1;
       this.pendingMove = { fromX, fromY, toX, toY };
-
-      // pont traversé
-      this.pendingBridge = [
-        [fromX, fromY],
-        [toX, toY]
-      ];
       this.pendingPivot = [fromX, fromY];
-
       this.mustModifyBridge = true;
     },
 
-    async handleBridgeAction(type, bridge = null, pivot = null) {
-      if (!this.pendingMove) {
-        this.showFeedback("Sélectionnez d'abord un déplacement !", true);
-        return;
-      }
-      // utiliser valeurs stockées si pas passées en param
-      bridge = bridge || this.pendingBridge;
-      pivot = pivot || this.pendingPivot;
-
-      const { fromX, fromY, toX, toY } = this.pendingMove;
+    async startNewGame() {
       try {
-        await this.makeMove(fromX, fromY, toX, toY, type, bridge, pivot);
-        // reset phase déplacement/action
-        this.pendingMove = null;
-        this.pendingBridge = null;
-        this.pendingPivot = null;
-        this.mustModifyBridge = false;
-        this.selectedLutin = null;
-      } catch (err) {
-        console.error("❌ Erreur handleBridgeAction:", err);
-        this.showFeedback("Erreur lors de l'action sur le pont", true);
-      }
-    },
-
-    nextPlayer() {
-      this.currentPlayerIndex =
-        (this.currentPlayerIndex + 1) % this.playersOrder.length;
-    },
-
-    // ----- Partie Chat -----
-    async sendChat() {
-      const q = this.chatQuestion.trim();
-      if (!q) return;
-      this.chatHistory.push({ from: "Vous", text: q });
-      this.chatQuestion = "";
-      try {
-        const res = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question: q })
-        });
-        const { reply } = await res.json();
-        this.chatHistory.push({ from: "PBot", text: reply });
-      } catch (err) {
-        console.error("❌ Erreur sendChat:", err);
-        this.chatHistory.push({
-          from: "PBot",
-          text: "Erreur de communication."
-        });
-      }
-      this.$nextTick(() => {
-        const el = this.$el.querySelector(".chat-history");
-        if (el) el.scrollTop = el.scrollHeight;
-      });
-    },
-
-    generateBridgesAndLocations() {
-      const allLocations = [];
-      for (let r = 0; r < 6; r++) {
-        for (let c = 0; c < 6; c++) {
-          if (c < 5) allLocations.push([[r, c], [r, c + 1]]);
-          if (r < 5) allLocations.push([[r, c], [r + 1, c]]);
+        const res = await fetch("/api/new_game", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: "random" }) });
+        const data = await res.json();
+        this.sessionId = data.session_id;
+        if (data.goblins && data.bridges) {
+          this.lutins   = data.goblins.map(g => ({ color: g.player, row: g.y-1, col: g.x-1 }));
+          this.bridges  = data.bridges.map(b => [[b.y1-1,b.x1-1],[b.y2-1,b.x2-1]]);
         }
+        await this.getGameState();
+        await this.getValidMoves();
+      } catch {
+        this.showFeedback("Erreur démarrage partie", true);
       }
-      return { allLocations };
     },
 
-    showFeedback(msg, isErr = false) {
-      this.feedbackMessage = msg;
-      this.feedbackIsError = isErr;
-      setTimeout(() => (this.feedbackMessage = ""), 3000);
+    async getGameState() {
+      const res = await fetch(`/api/game_state?session_id=${this.sessionId}`);
+      const data = await res.json();
+      this.gameState = data;
+      this.lutins  = (data.goblins||[]).map(g => ({ color: g.player, row: g.y-1, col: g.x-1 }));
+      this.bridges = (data.bridges||[]).map(b => [[b.y1-1,b.x1-1],[b.y2-1,b.x2-1]]);
+      const cp = (data.current_player||"green").toLowerCase();
+      this.currentPlayerIndex = this.playersOrder.indexOf(cp);
+    },
+
+    async getValidMoves() {
+      const res = await fetch(`/api/valid_moves?session_id=${this.sessionId}`);
+      const data = await res.json();
+      this.validMoves = (data.valid_moves||[]).map(vm => ({
+        ...vm.move,
+        from_x: vm.move.from_x-1,
+        from_y: vm.move.from_y-1,
+        to_x:   vm.move.to_x-1,
+        to_y:   vm.move.to_y-1
+      }));
+    },
+
+    async makeMove(fx, fy, tx, ty, actionType, bridge, pivot) {
+      const body = { session_id: this.sessionId, from_x: fx, from_y: fy, to_x: tx, to_y: ty, action_type: actionType };
+      if (bridge) { body.bridge_x1=bridge[0][0]; body.bridge_y1=bridge[0][1]; body.bridge_x2=bridge[1][0]; body.bridge_y2=bridge[1][1]; }
+      if (actionType==="rotate" && pivot) { body.pivot_x=pivot[0]; body.pivot_y=pivot[1]; }
+      await fetch("/api/make_move", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) });
+      await this.getGameState();
+      await this.getValidMoves();
+    },
+
+    showFeedback(msg,isErr=false) {
+      this.feedbackMessage=msg; this.feedbackIsError=isErr;
+      setTimeout(()=>this.feedbackMessage="",3000);
     }
   }
 };
 </script>
+
 
 
 <style scoped>

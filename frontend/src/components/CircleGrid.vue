@@ -1,17 +1,14 @@
 <template>
   <div class="svg-container">
     <svg :width="width" :height="height">
-      
       <!-- Ponts sous forme de composants enfant -->
       <PontuPont
-      v-for="(bridge, index) in validBridges"
-      :key="'pont-' + index"
-      :pont="convertToPontObject(bridge)"
-      :gridCoords="bridge"
-      @pont-clicked="deleteBridgeByCoords"
-      @pont-rotate="rotateBridgeByCoords"
-    />
-
+        v-for="(bridge, index) in validBridges"
+        :key="'pont-' + index"
+        :pont="convertToPontObject(bridge)"
+        :gridCoords="bridge"
+        @click.stop="onBridgeClick(bridge)"
+      />
 
       <!-- Cercles (intersections) -->
       <circle
@@ -20,7 +17,7 @@
         :cx="pt.x"
         :cy="pt.y"
         :r="circleRadius"
-        :fill="isHighlighted(pt) ? '#b3ffb3' : '#dddddd'"   
+        :fill="isHighlighted(pt) ? '#b3ffb3' : '#dddddd'"
         stroke="#888"
         stroke-width="0.5"
         @click="intersectionClicked(pt.row, pt.col)"
@@ -35,11 +32,7 @@
         :circleRadius="circleRadius"
         @clickedLutin="onLutinClick"
       />
-
     </svg>
-
-    <!-- Tooltip ou message contextuel (facultatif) -->
-    <!-- On pourrait ajouter un tooltip dynamique pour un pont survolé, etc. -->
   </div>
 </template>
 
@@ -84,87 +77,52 @@ export default {
       return pts;
     },
     validBridges() {
-      // On ne garde que les ponts horizontaux ou verticaux adjacents
       return this.bridges.filter(b => {
         if (!Array.isArray(b) || b.length !== 2) return false;
         const [[r1, c1], [r2, c2]] = b;
-        const isHorizontal = (r1 === r2) && (Math.abs(c1 - c2) === 1);
-        const isVertical = (c1 === c2) && (Math.abs(r1 - r2) === 1);
+        const isHorizontal = r1 === r2 && Math.abs(c1 - c2) === 1;
+        const isVertical = c1 === c2 && Math.abs(r1 - r2) === 1;
         return (isHorizontal || isVertical) && this.convertToPontObject(b);
       });
     }
   },
 
   methods: {
-    // 🔁 Appelé lors du clic sur un pont (simple clic)
-    async deleteBridgeByCoords(gridCoords) {
-      try {
-        // Suppression locale (ou appeler API si disponible)
-        this.$emit("delete-bridge", gridCoords);
-        this.$emit("refresh-game");
-      } catch (e) {
-        console.error("Erreur suppression pont :", e);
-      }
+    onBridgeClick(gridCoords) {
+      // émet vers GameBoard avec bridge + pivot
+      const rawBridge = gridCoords.map(([r, c]) => [c + 1, r + 1]);
+      const rawPivot = rawBridge[0];
+      this.$emit("pont-action", { bridge: rawBridge, pivot: rawPivot });
     },
 
-    // 🔁 Appelé lors du double clic
-    async rotateBridgeByCoords(gridCoords) {
-      try {
-        this.$emit("rotate-bridge", gridCoords);
-        this.$emit("refresh-game");
-      } catch (e) {
-        console.error("Erreur rotation pont :", e);
+    convertToPontObject(bridge) {
+      if (
+        !Array.isArray(bridge) ||
+        bridge.length !== 2 ||
+        !Array.isArray(bridge[0]) || bridge[0].length !== 2 ||
+        !Array.isArray(bridge[1]) || bridge[1].length !== 2
+      ) {
+        console.warn('Pont mal formé, on l’ignore :', bridge);
+        return null;
       }
+      const [[r1, c1], [r2, c2]] = bridge;
+      const idx1 = r1 * this.cols + c1;
+      const idx2 = r2 * this.cols + c2;
+      const p1 = this.points[idx1];
+      const p2 = this.points[idx2];
+      if (!p1 || !p2) {
+        console.warn('Coordonnées hors grille, on ignore :', bridge);
+        return null;
+      }
+      return { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y };
     },
-
-   convertToPontObject(bridge) {
-  // Vérifier qu'on a bien deux paires de coordonnées [ [r1,c1], [r2,c2] ]
-  if (
-    !Array.isArray(bridge) ||
-    bridge.length !== 2 ||
-    !Array.isArray(bridge[0]) || bridge[0].length !== 2 ||
-    !Array.isArray(bridge[1]) || bridge[1].length !== 2
-  ) {
-    console.warn('Pont mal formé, on l’ignore :', bridge);
-    return null;
-  }
-
-  const [[r1, c1], [r2, c2]] = bridge;
-  const idx1 = r1 * this.cols + c1;
-  const idx2 = r2 * this.cols + c2;
-  const p1 = this.points[idx1];
-  const p2 = this.points[idx2];
-
-  // Si hors grille, on ne tente pas de dessiner
-  if (!p1 || !p2) {
-    console.warn('Coordonnées hors grille, on ignore :', bridge);
-    return null;
-  }
-
-  return { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y };
-},
-
 
     onLutinClick(lutin) {
       this.$emit("lutin-clicked", lutin);
     },
-
     intersectionClicked(row, col) {
       this.$emit("intersection-clicked", { x: col, y: row });
     },
-
-    getRowColFromXY(x, y) {
-      const colFloat = (x - this.circleRadius) / this.spacing;
-      const rowFloat = (y - this.circleRadius) / this.spacing;
-      return [Math.round(rowFloat), Math.round(colFloat)];
-    },
-
-    findBridgeInGrid({ x1, y1, x2, y2 }) {
-      const r1c1 = this.getRowColFromXY(x1, y1);
-      const r2c2 = this.getRowColFromXY(x2, y2);
-      return [r1c1, r2c2];
-    },
-
     isHighlighted(pt) {
       return this.highlightIntersections.some(
         h => h.row === pt.row && h.col === pt.col
@@ -175,11 +133,6 @@ export default {
 </script>
 
 <style scoped>
-.svg-container {
-  position: relative;
-}
-
-svg {
-  background: #fdfdfd;
-}
+.svg-container { position: relative; }
+svg { background: #fdfdfd; }
 </style>
