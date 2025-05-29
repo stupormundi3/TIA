@@ -14,7 +14,7 @@ module.exports = defineConfig({
   devServer: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8000', // port du backend Prolog
+        target: 'http://localhost:8089', // port du backend Prolog
         changeOrigin: true,
         pathRewrite: { '^/api': '/api' } // Optionnel selon le backend
       }

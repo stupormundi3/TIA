@@ -32,7 +32,7 @@
       afin de réagir aux messages reçus du serveur.
     */
     created() {
-      this.socket = new WebSocket("ws://localhost:8080");
+      this.socket = new WebSocket("ws://localhost:8089");
   
       // Quand le serveur envoie un message, on appelle handleMessage()
       this.socket.onmessage = (ev) => this.handleMessage(ev.data);
