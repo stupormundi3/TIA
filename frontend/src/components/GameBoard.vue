@@ -34,10 +34,10 @@
       <div class="board-container">
         <h2>PontuXL – 6×6</h2>
 
+        <!-- feedbackMessage utilise la classe warning-banner -->
         <div
           v-if="feedbackMessage"
-          class="feedback-banner"
-          :class="{ error: feedbackIsError }"
+          class="warning-banner"
         >
           {{ feedbackMessage }}
         </div>
