@@ -240,6 +240,34 @@ export default {
       }));
     },
 
+    async sendChat() {
+      const q = this.chatQuestion.trim();
+      if (!q) return;
+      // 1) On ajoute le message de l’utilisateur dans l’historique
+      this.chatHistory.push({ from: "Vous", text: q });
+      this.chatQuestion = "";
+      // 2) On interroge l’API
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question: q })
+        });
+        const { reply } = await res.json();
+        // 3) On ajoute la réponse du bot
+        this.chatHistory.push({ from: "PBot", text: reply });
+      } catch (err) {
+        console.error("❌ Erreur sendChat:", err);
+        this.chatHistory.push({ from: "PBot", text: "Erreur de communication." });
+      }
+      // 4) Scroll vers le bas
+      this.$nextTick(() => {
+        const el = this.$el.querySelector(".chat-history");
+        if (el) el.scrollTop = el.scrollHeight;
+      });
+    },
+
+
     async makeMove(fx, fy, tx, ty, actionType, bridge, pivot) {
       const body = { session_id: this.sessionId, from_x: fx, from_y: fy, to_x: tx, to_y: ty, action_type: actionType };
       if (bridge) { body.bridge_x1=bridge[0][0]; body.bridge_y1=bridge[0][1]; body.bridge_x2=bridge[1][0]; body.bridge_y2=bridge[1][1]; }
