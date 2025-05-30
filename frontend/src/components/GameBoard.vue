@@ -137,16 +137,23 @@ export default {
       const { fromX, fromY, toX, toY } = this.pendingMove;
       const actionType = this.pendingActionType;
 
-      console.log("[commitBridgeAction] →", {
-        fromX, fromY, toX, toY, actionType,
-        bridge: bridgeClean,
-        pivot:  pivotClean
-      });
-
       try {
         await this.makeMove(fromX, fromY, toX, toY, actionType, bridgeClean, pivotClean);
+        // Feedback utilisateur
+        let msg = `Vous avez déplacé le lutin de (${fromX},${fromY}) à (${toX},${toY})`;
+        if (actionType === 'remove') {
+          msg += ` et supprimé le pont [${bridgeClean[0][0]},${bridgeClean[0][1]}]-[${bridgeClean[1][0]},${bridgeClean[1][1]}]`;
+        } else if (actionType === 'rotate') {
+          msg += ` et tourné le pont [${bridgeClean[0][0]},${bridgeClean[0][1]}]-[${bridgeClean[1][0]},${bridgeClean[1][1]}] autour du pivot (${pivotClean[0]},${pivotClean[1]})`;
+        }
+        this.showFeedback(msg, false);
+
+        // Coup IA si suivant
+        if (this.aiPlayers.includes(this.currentPlayer)) {
+          await this.handleAIMove();
+        }
       } catch (err) {
-        return this.showFeedback("Erreur sur l’action pont", true);
+        this.showFeedback("Erreur sur l’action pont", true);
       } finally {
         this.pendingMove       = null;
         this.pendingBridge     = null;
@@ -280,7 +287,38 @@ export default {
     showFeedback(msg,isErr=false) {
       this.feedbackMessage=msg; this.feedbackIsError=isErr;
       setTimeout(()=>this.feedbackMessage="",3000);
-    }
+    },
+
+    // IA: jouer automatiquement
+    async handleAIMove() {
+      this.showFeedback(`IA (${this.currentPlayer}) réfléchit…`, false);
+      try {
+        const res = await fetch(`/api/ai_move?session_id=${this.sessionId}`);
+        const data = await res.json();
+        if (data.status !== 'success') {
+          return this.showFeedback('Erreur IA', true);
+        }
+        const { move, action } = data;
+        const fx = move.from_x; const fy = move.from_y;
+        const tx = move.to_x;   const ty = move.to_y;
+        let bridge = null;
+        let pivot  = null;
+        if (action.type === 'remove' || action.type === 'rotate') {
+          bridge = [[action.x1, action.y1], [action.x2, action.y2]];
+          if (action.type === 'rotate') {
+            pivot = [action.pivot_x, action.pivot_y];
+          }
+        }
+        await this.makeMove(fx, fy, tx, ty, action.type, bridge, pivot);
+        // Feedback IA
+        let msgIA = `IA (${this.currentPlayer}) a déplacé de (${fx},${fy}) à (${tx},${ty})`;
+        if (action.type === 'remove') msgIA += ` et supprimé le pont [${action.x1},${action.y1}]-[${action.x2},${action.y2}]`;
+        if (action.type === 'rotate') msgIA += ` et tourné le pont [${action.x1},${action.y1}]-[${action.x2},${action.y2}] autour du pivot (${action.pivot_x},${action.pivot_y})`;
+        this.showFeedback(msgIA, false);
+      } catch (err) {
+        this.showFeedback('Erreur IA', true);
+      }
+    },
   }
 };
 </script>
