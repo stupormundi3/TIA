@@ -103,6 +103,7 @@ export default {
       mustModifyBridge: false,
 
       highlightIntersections: [],
+      highlightBridges: [],
       feedbackMessage: "",
       feedbackIsError: false,
 

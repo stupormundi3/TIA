@@ -32,6 +32,19 @@
         :circleRadius="circleRadius"
         @clickedLutin="onLutinClick"
       />
+
+      <!-- Ponts surlignés -->
+      <line
+        v-for="(line, index) in highlightLines"
+        :key="'highlight-line-' + index"
+        :x1="line.x1"
+        :y1="line.y1"
+        :x2="line.x2"
+        :y2="line.y2"
+        stroke="#ff0000"
+        stroke-width="2"
+        stroke-dasharray="4"
+      />
     </svg>
   </div>
 </template>
@@ -52,6 +65,7 @@ export default {
     lutinRadius: { type: Number, default: 8 },
     lutins: { type: Array, default: () => [] },
     bridges: { type: Array, default: () => [] },
+    highlightBridges: { type: Array, default: () => [] },
     highlightIntersections: { type: Array, default: () => [] }
   },
 
@@ -84,6 +98,12 @@ export default {
         const isVertical = c1 === c2 && Math.abs(r1 - r2) === 1;
         return (isHorizontal || isVertical) && this.convertToPontObject(b);
       });
+    },
+    // Génère les tracés SVG pour les ponts à surligner
+    highlightLines() {
+      return this.highlightBridges
+        .map(b => this.convertToPontObject(b))
+        .filter(Boolean);
     }
   },
 
