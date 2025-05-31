@@ -64,7 +64,7 @@
         <h3>Ponts restants : {{ bridges.length }}</h3>
 
         <div>
-          <h4>Ponts supprimés : {{ deletedBridges.length }}</h4>
+          <h4>Ponts supprimés ou tournés: {{ deletedBridges.length }}</h4>
           <ul>
             <li v-for="(b, i) in deletedBridges" :key="i">
               {{ b.actor }} a {{ b.action }} le pont [{{ b.bridge[0][0] }},{{ b.bridge[0][1] }}] – [{{ b.bridge[1][0] }},{{ b.bridge[1][1] }}]
