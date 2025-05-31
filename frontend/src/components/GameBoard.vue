@@ -47,6 +47,7 @@
           :cols="6"
           :lutins="lutins"
           :bridges="bridges"
+          
           :highlightIntersections="highlightIntersections"
           @lutin-clicked="onLutinClicked"
           @intersection-clicked="onIntersectionClicked"
@@ -66,7 +67,7 @@
           <h4>Ponts supprimés : {{ deletedBridges.length }}</h4>
           <ul>
             <li v-for="(b, i) in deletedBridges" :key="i">
-              [{{ b[0][0] }},{{ b[0][1] }}] – [{{ b[1][0] }},{{ b[1][1] }}]
+              {{ b.actor }} a {{ b.action }} le pont [{{ b.bridge[0][0] }},{{ b.bridge[0][1] }}] – [{{ b.bridge[1][0] }},{{ b.bridge[1][1] }}]
             </li>
           </ul>
         </div>
@@ -134,42 +135,56 @@ export default {
     },
 
     async commitBridgeAction() {
-     console.log('[commitBridgeAction] pendingMove, pendingBridge, pendingPivot:', this.pendingMove, this.pendingBridge, this.pendingPivot);
-      const bridgeClean = this.pendingBridge.map(pair => pair.slice());
-      const pivotClean  = this.pendingPivot ? this.pendingPivot.slice() : null;
-      const { fromX, fromY, toX, toY } = this.pendingMove;
-      const actionType = this.pendingActionType;
+  console.log('[commitBridgeAction] pendingMove, pendingBridge, pendingPivot:', this.pendingMove, this.pendingBridge, this.pendingPivot);
+  const bridgeClean = this.pendingBridge.map(pair => pair.slice());
+  const pivotClean  = this.pendingPivot ? this.pendingPivot.slice() : null;
+  const { fromX, fromY, toX, toY } = this.pendingMove;
+  const actionType = this.pendingActionType;
 
-      try {
-        await this.makeMove(fromX, fromY, toX, toY, actionType, bridgeClean, pivotClean);
-        console.log('[commitBridgeAction] action performed:', actionType);
-        if (actionType === 'remove') {
-          this.deletedBridges.push(bridgeClean);
-        }
-        // Feedback utilisateur
-        let msg = `Vous avez déplacé le lutin de (${fromX},${fromY}) à (${toX},${toY})`;
-        if (actionType === 'remove') {
-          msg += ` et supprimé le pont [${bridgeClean[0][0]},${bridgeClean[0][1]}]–[${bridgeClean[1][0]},${bridgeClean[1][1]}]`;
-        } else if (actionType === 'rotate') {
-          msg += ` et tourné le pont [${bridgeClean[0][0]},${bridgeClean[0][1]}]–[${bridgeClean[1][0]},${bridgeClean[1][1]}] autour du pivot (${pivotClean[0]},${pivotClean[1]})`;
-        }
-        this.showFeedback(msg, false);
+  // --- On capture la couleur du joueur AVANT l’appel au backend ---
+  const actorBeforeMove = this.currentPlayer;
 
-        // Coup IA si suivant
-        if (this.aiPlayers.includes(this.currentPlayer)) {
-          await this.handleAIMove();
-        }
-      } catch (err) {
-        this.showFeedback("Erreur sur l’action pont", true);
-      } finally {
-        this.pendingMove       = null;
-        this.pendingBridge     = null;
-        this.pendingPivot      = null;
-        this.pendingActionType = null;
-        this.mustModifyBridge  = false;
-        this.selectedLutin     = null;
-      }
-    },
+  try {
+    await this.makeMove(fromX, fromY, toX, toY, actionType, bridgeClean, pivotClean);
+    console.log('[commitBridgeAction] action performed:', actionType);
+    if (actionType === 'remove') {
+      this.deletedBridges.push({
+        bridge: bridgeClean,
+        actor: `${actorBeforeMove} (joueur)`,
+        action: 'supprimé'
+      });
+    } else if (actionType === 'rotate') {
+      this.deletedBridges.push({
+        bridge: bridgeClean,
+        actor: `${actorBeforeMove} (joueur)`,
+        action: 'tourné'
+      });
+    }
+    // Feedback utilisateur
+    let msg = `Vous avez déplacé le lutin de (${fromX},${fromY}) à (${toX},${toY})`;
+    if (actionType === 'remove') {
+      msg += ` et supprimé le pont [${bridgeClean[0][0]},${bridgeClean[0][1]}]–[${bridgeClean[1][0]},${bridgeClean[1][1]}]`;
+    } else if (actionType === 'rotate') {
+      msg += ` et tourné le pont [${bridgeClean[0][0]},${bridgeClean[0][1]}]–[${bridgeClean[1][0]},${bridgeClean[1][1]}] autour du pivot (${pivotClean[0]},${pivotClean[1]})`;
+    }
+    this.showFeedback(msg, false);
+
+    // Coup IA si suivant
+    if (this.aiPlayers.includes(this.currentPlayer)) {
+      await this.handleAIMove();
+    }
+  } catch (err) {
+    this.showFeedback("Erreur sur l’action pont", true);
+  } finally {
+    this.pendingMove       = null;
+    this.pendingBridge     = null;
+    this.pendingPivot      = null;
+    this.pendingActionType = null;
+    this.mustModifyBridge  = false;
+    this.selectedLutin     = null;
+  }
+},
+
 
     startBridgeAction(type) {
       if (!this.pendingMove) {
@@ -316,33 +331,56 @@ export default {
 
     // IA: jouer automatiquement
     async handleAIMove() {
-     const aiColor = this.currentPlayer;  // mémorise la couleur IA avant qu’elle ne change
-      this.showFeedback(`IA (${this.currentPlayer}) réfléchit…`, false);
+      const aiColor = this.currentPlayer; // mémorise la couleur IA avant qu’elle ne change
+      this.showFeedback(`IA (${aiColor}) réfléchit…`, false);
       try {
         const res = await fetch(`/api/ai_move?session_id=${this.sessionId}`);
         const data = await res.json();
         console.log('[handleAIMove] response from backend:', data);
-        console.log('[handleAIMove] action type:', action.type);
+        const { move, action } = data;
+        console.log('[handleAIMove] action type:', action?.type);
         if (data.status !== 'success') {
           return this.showFeedback('Erreur IA', true);
         }
-        const { move, action } = data;
         const fx = move.from_x; const fy = move.from_y;
         const tx = move.to_x;   const ty = move.to_y;
         let bridge = null;
         let pivot  = null;
-        if (action.type === 'remove' || action.type === 'rotate') {
+        if (action && (action.type === 'remove' || action.type === 'rotate')) {
           bridge = [[action.x1, action.y1], [action.x2, action.y2]];
           if (action.type === 'rotate') {
             pivot = [action.pivot_x, action.pivot_y];
           }
         }
-        await this.makeMove(fx, fy, tx, ty, action.type, bridge, pivot);
+        await this.makeMove(fx, fy, tx, ty, action?.type, bridge, pivot);
+        if (action?.type === 'remove') {
+          const removedBridge = [
+            [action.x1, action.y1],
+            [action.x2, action.y2]
+          ];
+          this.deletedBridges.push({
+            bridge: removedBridge,
+            actor: `IA (${aiColor})`,
+            action: 'supprimé'
+          });
+        } else if (action?.type === 'rotate') {
+          const rotatedBridge = [
+            [action.x1, action.y1],
+            [action.x2, action.y2]
+          ];
+          this.deletedBridges.push({
+            bridge: rotatedBridge,
+            actor: `IA (${aiColor})`,
+            action: 'tourné'
+          });
+        }
+        // Vérification des données reçues pour éviter les incohérences
+        console.log('[handleAIMove] Vérification des données:', { action, move });
         // Feedback IA avec couleur mémorisée
         let msgIA = `IA (${aiColor}) a déplacé de (${fx},${fy}) à (${tx},${ty})`;
-        if (action.type === 'remove') {
+        if (action?.type === 'remove') {
           msgIA += ` et supprimé le pont [${action.x1},${action.y1}]-[${action.x2},${action.y2}]`;
-        } else if (action.type === 'rotate') {
+        } else if (action?.type === 'rotate') {
           msgIA += ` et tourné le pont [${action.x1},${action.y1}]-[${action.x2},${action.y2}] autour du pivot (${action.pivot_x},${action.pivot_y})`;
         }
         this.showFeedback(msgIA, false);
@@ -350,150 +388,106 @@ export default {
         this.showFeedback('Erreur IA', true);
         console.error('[handleAIMove] error:', err);
       }
-    },
+    }
   }
 };
 </script>
 
-
-
 <style scoped>
-/* Container principal : on conserve le flex */
 .game-wrapper {
   display: flex;
-  gap: 2rem;
-  align-items: flex-start;
+  height: 100vh;
 }
 
-/* Colonne jeu à droite */
-.board-column {
-  flex: 2;
-}
-
-/* styles existants pour .board-container… */
-.board-container {
-  text-align: center;
-  margin: 0 auto;
-}
-
-
-.warning-banner {
-  background: #ffcc00;
-  color: black;
-  font-weight: bold;
-  text-align: center;
-  padding: 10px;
-  margin-top: 15px;
-  border-radius: 5px;
-}
-
-button.active {
-  background: red;
-  color: white;
-}
-
-@keyframes moveLutin {
-  from {
-    transform: scale(1.2);
-    opacity: 0.7;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-.lutin {
-  transition: transform 0.3s ease-in-out;
-}
-
-/* 1. Colonne chat : plus large, fond clair, ombre et arrondi */
 .chat-column {
-  display: flex;
-  flex-direction: column;   /* on empile header, history, input */
-  height: 100vh;            /* toute la hauteur de la fenêtre */
-  box-sizing: border-box;   
-  flex: 1.2;                 /* prendre un peu plus d’espace */
-  max-width: 420px;          /* largeur maxi */
-  background: #ffffff;       /* fond blanc */
-  padding: 1.5rem;           /* espace intérieur */
-  border-radius: 0.75rem;    /* coins arrondis */
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  background-color: #f4f4f9;
+  border-right: 1px solid #ddd;
+  padding: 20px;
+  width: 300px;
   display: flex;
   flex-direction: column;
-  font-family: 'Segoe UI', sans-serif;
 }
 
-/* 2. Titre et intro plus net */
-.chat-column h2,
-.chat-column p {
-  flex: 0 0 auto;           /* header non flexible */
-}
-
-/* 3. Historique : fond doux et bulles */
 .chat-history {
-  flex: 1 1 auto;           /* prend tout l’espace restant */
-  overflow-y: auto;         /* scroll interne si overflow */
-}
-.chat-history .Vous,
-.chat-history .PBot {
-  max-width: 80%;
-  padding: 0.6rem 1rem;
-  margin: 0.5rem 0;
-  border-radius: 1rem;
-  position: relative;
-  word-wrap: break-word;
-  line-height: 1.4;
-  white-space: pre-wrap;
-}
-.chat-history .Vous {
-  margin-left: auto;
-  background: #e0f7fa;
-  color: #006064;
-}
-.chat-history .PBot {
-  margin-right: auto;
-  background: #e8f5e9;
-  color: #1b5e20;
+  flex-grow: 1;
+  overflow-y: auto;
+  margin-bottom: 10px;
 }
 
-/* 4. Input : arrondi et hover */
+.chat-message {
+  background-color: #e1ffc7;
+  border-radius: 5px;
+  margin: 5px 0;
+  padding: 10px;
+}
 
 .chat-input {
-  flex: 0 0 auto;           /* footer non flexible */
+  display: flex;
 }
+
 .chat-input input {
-  flex: 1;
-  padding: 0.75rem 1rem;
   border: 1px solid #ccc;
-  border-radius: 1.5rem 0 0 1.5rem;
-  outline: none;
-  transition: border-color 0.2s;
+  border-radius: 4px;
+  flex-grow: 1;
+  margin-right: 10px;
+  padding: 10px;
 }
-.chat-input input:focus {
-  border-color: #66afe9;
-}
+
 .chat-input button {
-  padding: 0.75rem 1.25rem;
+  background-color: #007bff;
   border: none;
-  background: #66afe9;
+  border-radius: 4px;
   color: white;
-  font-weight: 600;
-  border-radius: 0 1.5rem 1.5rem 0;
   cursor: pointer;
-  transition: background 0.2s;
+  padding: 10px 20px;
 }
+
 .chat-input button:hover {
-  background: #558acb;
+  background-color: #0056b3;
 }
 
-/* 5. Petite amélioration de la scrollbar */
-.chat-history::-webkit-scrollbar {
-  width: 6px;
-}
-.chat-history::-webkit-scrollbar-thumb {
-  background: rgba(0,0,0,0.1);
-  border-radius: 3px;
+.board-column {
+  flex-grow: 1;
+  padding: 20px;
 }
 
+.warning-banner {
+  background-color: #fff3cd;
+  border: 1px solid #ffeeba;
+  border-radius: 4px;
+  color: #856404;
+  margin-bottom: 10px;
+  padding: 10px;
+}
+
+h2, h3, h4 {
+  color: #333;
+}
+
+h2 {
+  border-bottom: 2px solid #007bff;
+  padding-bottom: 10px;
+}
+
+h3 {
+  margin-top: 20px;
+}
+
+ul {
+  padding-left: 20px;
+}
+
+button {
+  background-color: #28a745;
+  border: none;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+  margin-right: 10px;
+  padding: 10px 15px;
+}
+
+button:hover {
+  background-color: #218838;
+}
 </style>
