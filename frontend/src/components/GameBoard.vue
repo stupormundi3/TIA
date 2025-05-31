@@ -124,6 +124,7 @@ export default {
 
   methods: {
     async handlePontAction({ bridge, pivot }) {
+      console.log('[handlePontAction] bridge:', bridge, 'pivot:', pivot);
       if (!this.pendingMove) {
         return this.showFeedback("D'abord déplacez un lutin !", true);
       }
@@ -133,6 +134,7 @@ export default {
     },
 
     async commitBridgeAction() {
+     console.log('[commitBridgeAction] pendingMove, pendingBridge, pendingPivot:', this.pendingMove, this.pendingBridge, this.pendingPivot);
       const bridgeClean = this.pendingBridge.map(pair => pair.slice());
       const pivotClean  = this.pendingPivot ? this.pendingPivot.slice() : null;
       const { fromX, fromY, toX, toY } = this.pendingMove;
@@ -140,12 +142,16 @@ export default {
 
       try {
         await this.makeMove(fromX, fromY, toX, toY, actionType, bridgeClean, pivotClean);
+        console.log('[commitBridgeAction] action performed:', actionType);
+        if (actionType === 'remove') {
+          this.deletedBridges.push(bridgeClean);
+        }
         // Feedback utilisateur
         let msg = `Vous avez déplacé le lutin de (${fromX},${fromY}) à (${toX},${toY})`;
         if (actionType === 'remove') {
-          msg += ` et supprimé le pont [${bridgeClean[0][0]},${bridgeClean[0][1]}]-[${bridgeClean[1][0]},${bridgeClean[1][1]}]`;
+          msg += ` et supprimé le pont [${bridgeClean[0][0]},${bridgeClean[0][1]}]–[${bridgeClean[1][0]},${bridgeClean[1][1]}]`;
         } else if (actionType === 'rotate') {
-          msg += ` et tourné le pont [${bridgeClean[0][0]},${bridgeClean[0][1]}]-[${bridgeClean[1][0]},${bridgeClean[1][1]}] autour du pivot (${pivotClean[0]},${pivotClean[1]})`;
+          msg += ` et tourné le pont [${bridgeClean[0][0]},${bridgeClean[0][1]}]–[${bridgeClean[1][0]},${bridgeClean[1][1]}] autour du pivot (${pivotClean[0]},${pivotClean[1]})`;
         }
         this.showFeedback(msg, false);
 
@@ -222,7 +228,7 @@ export default {
         await this.getGameState();
         await this.getValidMoves();
       } catch {
-        this.showFeedback("Erreur démarrage partie", true);
+        this.showFeedback("Erreur démarrage partie Connecte le backend", true);
       }
     },
 
@@ -239,13 +245,30 @@ export default {
     async getValidMoves() {
       const res = await fetch(`/api/valid_moves?session_id=${this.sessionId}`);
       const data = await res.json();
+      // Conserve coups valides avec action
       this.validMoves = (data.valid_moves||[]).map(vm => ({
         ...vm.move,
+        action: vm.action,
         from_x: vm.move.from_x-1,
         from_y: vm.move.from_y-1,
         to_x:   vm.move.to_x-1,
         to_y:   vm.move.to_y-1
       }));
+      // Détermine les ponts disponibles pour rotation (0-based coords)
+      this.validBridgeLocations = this.validMoves
+        .filter(m => m.action.type === 'rotate')
+        .map(m => [ [m.action.y1-1, m.action.x1-1], [m.action.y2-1, m.action.x2-1] ]);
+      // Élimination si ce joueur n’a plus de coups en phase de jeu
+      if (data.phase === 'play' && this.validMoves.length === 0) {
+        const eliminated = this.currentPlayer;
+        console.log(`[getValidMoves] ${eliminated} éliminé (plus de coups valides)`);
+        this.showFeedback(`Le joueur ${eliminated} est éliminé`, false);
+        // Retirer le joueur et ajuster l’index
+        this.playersOrder = this.playersOrder.filter(c => c !== eliminated);
+        this.currentPlayerIndex = this.currentPlayerIndex % this.playersOrder.length;
+        // Relancer pour le joueur suivant
+        return this.getValidMoves();
+      }
     },
 
     async sendChat() {
@@ -277,6 +300,7 @@ export default {
 
 
     async makeMove(fx, fy, tx, ty, actionType, bridge, pivot) {
+      console.log('[makeMove] deploying move', { fx, fy, tx, ty, actionType, bridge, pivot });
       const body = { session_id: this.sessionId, from_x: fx, from_y: fy, to_x: tx, to_y: ty, action_type: actionType };
       if (bridge) { body.bridge_x1=bridge[0][0]; body.bridge_y1=bridge[0][1]; body.bridge_x2=bridge[1][0]; body.bridge_y2=bridge[1][1]; }
       if (actionType==="rotate" && pivot) { body.pivot_x=pivot[0]; body.pivot_y=pivot[1]; }
@@ -287,15 +311,18 @@ export default {
 
     showFeedback(msg,isErr=false) {
       this.feedbackMessage=msg; this.feedbackIsError=isErr;
-      setTimeout(()=>this.feedbackMessage="",3000);
+      setTimeout(()=>this.feedbackMessage="",40000);
     },
 
     // IA: jouer automatiquement
     async handleAIMove() {
+     const aiColor = this.currentPlayer;  // mémorise la couleur IA avant qu’elle ne change
       this.showFeedback(`IA (${this.currentPlayer}) réfléchit…`, false);
       try {
         const res = await fetch(`/api/ai_move?session_id=${this.sessionId}`);
         const data = await res.json();
+        console.log('[handleAIMove] response from backend:', data);
+        console.log('[handleAIMove] action type:', action.type);
         if (data.status !== 'success') {
           return this.showFeedback('Erreur IA', true);
         }
@@ -311,13 +338,17 @@ export default {
           }
         }
         await this.makeMove(fx, fy, tx, ty, action.type, bridge, pivot);
-        // Feedback IA
-        let msgIA = `IA (${this.currentPlayer}) a déplacé de (${fx},${fy}) à (${tx},${ty})`;
-        if (action.type === 'remove') msgIA += ` et supprimé le pont [${action.x1},${action.y1}]-[${action.x2},${action.y2}]`;
-        if (action.type === 'rotate') msgIA += ` et tourné le pont [${action.x1},${action.y1}]-[${action.x2},${action.y2}] autour du pivot (${action.pivot_x},${action.pivot_y})`;
+        // Feedback IA avec couleur mémorisée
+        let msgIA = `IA (${aiColor}) a déplacé de (${fx},${fy}) à (${tx},${ty})`;
+        if (action.type === 'remove') {
+          msgIA += ` et supprimé le pont [${action.x1},${action.y1}]-[${action.x2},${action.y2}]`;
+        } else if (action.type === 'rotate') {
+          msgIA += ` et tourné le pont [${action.x1},${action.y1}]-[${action.x2},${action.y2}] autour du pivot (${action.pivot_x},${action.pivot_y})`;
+        }
         this.showFeedback(msgIA, false);
       } catch (err) {
         this.showFeedback('Erreur IA', true);
+        console.error('[handleAIMove] error:', err);
       }
     },
   }

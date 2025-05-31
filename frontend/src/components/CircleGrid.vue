@@ -1,6 +1,20 @@
 <template>
   <div class="svg-container">
     <svg :width="width" :height="height">
+      <!-- Highlight bridges rotatables -->
+      <line
+        v-for="(hl, idx) in highlightLines"
+        :key="'hl-'+idx"
+        :x1="hl.x1"
+        :y1="hl.y1"
+        :x2="hl.x2"
+        :y2="hl.y2"
+        stroke="#f44336"
+        stroke-width="6"
+        stroke-linecap="round"
+        opacity="0.6"
+      />
+
       <!-- Ponts sous forme de composants enfant -->
       <PontuPont
         v-for="(bridge, index) in validBridges"
