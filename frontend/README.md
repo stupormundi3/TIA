@@ -1,7 +1,12 @@
-# pontuxl
+# pontuxl 
+
+```
+installer node.js 
+```
 
 ## Project setup
 ```
+cd frontend 
 npm install
 ```
 
@@ -10,15 +15,13 @@ npm install
 npm run serve
 ```
 
-### Compiles and minifies for production
+### backend
 ```
-npm run build
+cd backend 
+[pontuxl_server].
+start_server(8089).
 ```
 
-### Lints and fixes files
-```
-npm run lint
-```
 
 ### Customize configuration
 See [Configuration Reference](https://cli.vuejs.org/config/).
